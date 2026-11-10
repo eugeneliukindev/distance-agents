@@ -15,14 +15,13 @@ import shutil
 import subprocess
 import tempfile
 import time
-import tomllib
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from checks import business_files, run_checks
+import tasklib
+from checks import business_files
 
 BENCH = Path(__file__).resolve().parent
-STARTER = BENCH / "shop"
 RULES = BENCH.parent / "AGENTS.md"
 RESULTS = BENCH / "results"
 # placebo: generic "write clean code" advice, to tell the effect of DISTANCE from the effect of any instructions.
@@ -58,8 +57,8 @@ def commit(work: Path, message: str) -> None:
     git(work, "commit", "-qm", message, "--allow-empty")
 
 
-def prepare(work: Path) -> None:
-    shutil.copytree(STARTER, work, dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__"))
+def prepare(work: Path, task: str) -> None:
+    shutil.copytree(tasklib.starter(task), work, dirs_exist_ok=True, ignore=tasklib.IGNORE)
     (work / ".gitignore").write_text("__pycache__/\n*.db\n")
     git(work, "init", "-q")
     commit(work, "start")
@@ -128,26 +127,25 @@ def save_patch(work: Path, name: str) -> None:
 
 def run_one(task: str, condition: str, index: int, model: str) -> dict:
     task_dir = BENCH / "tasks" / task
-    config = tomllib.loads((task_dir / "task.toml").read_text())
-    variants, markers = set(config["variants"]), set(config["markers"])
+    config = tasklib.config(task)
     run_id = f"{task}.{condition}.{index}.{int(time.time())}"
     work = Path(tempfile.mkdtemp(prefix=f"da-{task}-{condition}-"))
-    prepare(work)
+    prepare(work, task)
 
     record = {"run_id": run_id, "task": task, "letters": config["letters"], "condition": condition, "model": model}
     record |= run_agent(work, (task_dir / "task.md").read_text(), condition, model)
     record["tests"] = hidden_tests(work, task_dir, ["test_hidden.py"])
-    record["checks"] = run_checks(work, STARTER, variants, markers)
+    record["checks"] = tasklib.checks(task, work)
     record["diff"] = diff_stats(work)
     record["work_dir"] = str(work)
     save_patch(work, run_id)
 
-    if config.get("followup"):
+    if config["followup"]:
         commit(work, "stage 1")
         business_before = business_files(work)
         followup = run_agent(work, (task_dir / "followup.md").read_text(), condition, model)
         followup["tests"] = hidden_tests(work, task_dir, ["test_hidden.py", "test_followup.py"])
-        followup["checks"] = run_checks(work, STARTER, variants, markers)
+        followup["checks"] = tasklib.checks(task, work)
         followup["diff"] = diff_stats(work)
         followup["business_files_touched"] = sorted(set(followup["diff"]["files"]) & business_before)
         save_patch(work, run_id + ".followup")

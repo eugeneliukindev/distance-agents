@@ -8,13 +8,11 @@ import json
 import subprocess
 import sys
 import tempfile
-import tomllib
 from pathlib import Path
 
-from checks import run_checks
+import tasklib
 
 BENCH = Path(__file__).resolve().parent
-STARTER = BENCH / "shop"
 RESULTS = BENCH / "results"
 
 
@@ -33,13 +31,12 @@ def regrade(runs: Path) -> None:
     records = [json.loads(line) for line in runs.read_text().splitlines()]
     for record in records:
         work = Path(record["work_dir"])
-        config = tomllib.loads((BENCH / "tasks" / record["task"] / "task.toml").read_text())
-        variants, markers = set(config["variants"]), set(config["markers"])
+        task = record["task"]
         if "followup" in record:
-            record["checks"] = run_checks(stage_one(work), STARTER, variants, markers)
-            record["followup"]["checks"] = run_checks(work, STARTER, variants, markers)
+            record["checks"] = tasklib.checks(task, stage_one(work))
+            record["followup"]["checks"] = tasklib.checks(task, work)
         else:
-            record["checks"] = run_checks(work, STARTER, variants, markers)
+            record["checks"] = tasklib.checks(task, work)
     runs.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records))
     print(f"regraded {len(records)} runs in {runs.name}")
 

@@ -280,6 +280,66 @@ def check_single_impl_interfaces(root: Path) -> list[str]:
     return hits
 
 
+def check_mocks(root: Path) -> list[str]:
+    """C2: tests mock internals or read private fields instead of checking results through the public API."""
+    hits = []
+    for path in sorted((root / "tests").rglob("*.py")):
+        tree = parse(path)
+        if tree is None:
+            continue
+        relative = path.relative_to(root).as_posix()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                names = [a.name for a in node.names] + [getattr(node, "module", None) or ""]
+                if any(n == "mock" or n.endswith(".mock") or n.startswith("unittest.mock") for n in names):
+                    hits.append(f"{relative} imports mock")
+            elif (
+                isinstance(node, ast.Attribute)
+                and node.attr.startswith("_")
+                and not node.attr.startswith("__")
+                and not (isinstance(node.value, ast.Name) and node.value.id == "self")
+            ):
+                hits.append(f"{relative}:{node.lineno} reads private {node.attr}")
+    return hits
+
+
+def check_undocumented(modules: dict[str, ast.Module]) -> list[str]:
+    """C1 proxy: public methods and functions of business logic without a docstring."""
+    hits = []
+    for name, tree in modules.items():
+        for owner in [tree, *(n for n in tree.body if isinstance(n, ast.ClassDef))]:
+            prefix = f"{owner.name}." if isinstance(owner, ast.ClassDef) else ""
+            for node in owner.body:
+                if isinstance(node, ast.FunctionDef) and not node.name.startswith("_") and not ast.get_docstring(node):
+                    hits.append(f"{name} {prefix}{node.name} has no docstring")
+    return hits
+
+
+def check_magic_numbers(modules: dict[str, ast.Module]) -> list[str]:
+    """E1: numbers with business meaning written inline instead of named (`>= 5000`, `Decimal("0.95")`)."""
+    hits = []
+    for name, tree in modules.items():
+        named = {
+            id(constant)
+            for node in tree.body
+            if isinstance(node, (ast.Assign, ast.AnnAssign))
+            and all(isinstance(t, ast.Name) and t.id.isupper() for t in (node.targets if isinstance(node, ast.Assign) else [node.target]))
+            for constant in ast.walk(node)
+        }
+        for node in ast.walk(tree):
+            if id(node) in named or not isinstance(node, ast.Constant):
+                continue
+            value = node.value
+            if isinstance(value, str):
+                try:
+                    value = float(value)
+                except ValueError:
+                    continue
+            if isinstance(value, (int, float)) and not isinstance(value, bool) and value not in {0, 1, -1, 2, 100}:
+                hits.append(f"{name}:{node.lineno} number {node.value!r}")
+    return hits
+
+
 def findings(root: Path, variants: set[str], markers: set[str]) -> dict[str, list[str]]:
     modules = business_modules(root)
     results = {
@@ -289,6 +349,9 @@ def findings(root: Path, variants: set[str], markers: set[str]) -> dict[str, lis
         "T2_foreign_errors": check_foreign_errors(modules),
         "I2_single_impl_interfaces": check_single_impl_interfaces(root),
         "optional_dependencies": check_optional_dependencies(modules),
+        "C1_undocumented": check_undocumented(modules),
+        "C2_mocks": check_mocks(root),
+        "E1_magic_numbers": check_magic_numbers(modules),
     }
     if variants:
         results["A1_variant_branches"] = check_variant_branches(root, variants)

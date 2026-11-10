@@ -12,15 +12,17 @@ from statistics import mean
 
 RESULTS = Path(__file__).resolve().parent / "results"
 
-# Checks that measure the letters a task targets. `markers` is task-specific and always a target.
+# Generic checks that measure the letters a task targets. `markers` and the task's own `task_rule` check
+# are always targets; letters without a generic check rely on `task_rule`.
 TARGET_CHECKS = {
     "A1": ["A1_variant_branches", "A1_variant_api"],
     "I1": ["I1_infra_imports"],
     "T1": ["T1_raw_payload"],
     "T2": ["T2_foreign_errors"],
     "I2": ["I2_single_impl_interfaces"],
-    "N1": [],
 }
+# Checked on every run, whatever the task.
+SECONDARY_CHECKS = ["C1_undocumented", "C2_mocks", "E1_magic_numbers"]
 
 
 def passed(stage: dict) -> bool:
@@ -29,7 +31,7 @@ def passed(stage: dict) -> bool:
 
 
 def clean(stage: dict, letters: list[str]) -> bool:
-    targets = ["markers", *(check for letter in letters for check in TARGET_CHECKS[letter])]
+    targets = ["markers", "task_rule", *(check for letter in letters for check in TARGET_CHECKS.get(letter, []))]
     return all(not stage["checks"].get(check) for check in targets)
 
 
@@ -51,6 +53,16 @@ def main() -> None:
             f" | {mean(r['cost_usd'] or 0 for r in records):.2f}"
             f" | {mean(r['seconds'] for r in records) / 60:.1f} |"
         )
+
+    by_condition: dict[str, list[dict]] = defaultdict(list)
+    for (_, condition), records in groups.items():
+        by_condition[condition] += records
+    print("\nChecked on every task: share of runs with new findings (lower is better).\n")
+    print("| condition | runs | " + " | ".join(SECONDARY_CHECKS) + " |")
+    print("|---|---|" + "---|" * len(SECONDARY_CHECKS))
+    for condition, records in sorted(by_condition.items()):
+        cells = [f"{sum(bool(r['checks'].get(check)) for r in records)}/{len(records)}" for check in SECONDARY_CHECKS]
+        print(f"| {condition} | {len(records)} | " + " | ".join(cells) + " |")
 
     followups = {key: [r["followup"] for r in records if "followup" in r] for key, records in groups.items()}
     if any(followups.values()):
