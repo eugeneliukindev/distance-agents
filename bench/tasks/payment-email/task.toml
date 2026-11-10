@@ -1,0 +1,4 @@
+# I1: the mail API belongs in an adapter, not in Checkout.
+# Reverse trap for I2: a Notifier interface with one implementation is not needed (a test fake would make two).
+letters = ["I2", "I1"]
+markers = ["/send", "order_paid"]

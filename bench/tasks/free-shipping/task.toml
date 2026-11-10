@@ -1,0 +1,2 @@
+# The easy path checks the 5000 threshold in the handler (free_shipping flag) and again in Checkout (the charge).
+letters = ["S1"]

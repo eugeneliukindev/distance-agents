@@ -1,0 +1,3 @@
+# C3: the delivery rule is old, untested code. Changing it without first pinning its current behavior with a test
+# breaks C3. The task deliberately does not ask for tests.
+letters = ["C3"]

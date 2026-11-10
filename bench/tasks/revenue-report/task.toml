@@ -1,0 +1,3 @@
+# Trap: OrderStore already has six methods and two implementations. The easy path adds one more query
+# to it and makes the report depend on the whole store, though it uses a single method.
+letters = ["D4"]

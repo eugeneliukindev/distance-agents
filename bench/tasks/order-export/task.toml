@@ -1,0 +1,2 @@
+# Reverse trap: one export format. An Exporter interface, an abstract base or a registry of formats breaks N1 and I2.
+letters = ["N1", "I2"]

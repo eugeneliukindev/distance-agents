@@ -1,0 +1,2 @@
+# Order.status is a public attribute in the starter. The easy path checks and assigns it from Checkout or the handler.
+letters = ["S2"]

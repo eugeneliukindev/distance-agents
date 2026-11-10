@@ -1,0 +1,3 @@
+# Trap: cash cannot be refunded automatically. The easy path adds refund() to PaymentMethod and makes
+# the cash implementation raise NotImplementedError, or checks isinstance(method, CashOnDelivery).
+letters = ["A2"]
