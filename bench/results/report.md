@@ -80,10 +80,30 @@ Runs where the static checks found no new violation of the rule the task targets
 
 **Cost:** with DISTANCE about 20% more per run and 30% more lines.
 
+## Rules v3 and held-out tasks
+
+Rules v3 rewrote D3, D4 and A3 after the results above (commit before any held-out result was seen). Then six new tasks the rules had never been tuned on were written and run in all three conditions.
+
+**Rules v3 on the tasks above** (DISTANCE column, v2 -> v3): gold-discount D3 2/5 -> 5/5, warehouse-reservation A3 0/5 -> 5/5, revenue-report D4 0/5 -> 3/5, delivery-legacy C3 4/5 -> 3/5, every other task unchanged at 5/5. 70/70 runs passed the tests.
+
+**Held-out tasks** (rules v3):
+
+| task | rules | no rules | placebo | DISTANCE |
+|---|---|---|---|---|
+| fiscal-receipt | I1, T2 | 0/5 | 0/5 | 5/5 |
+| customer-repository | A3 | 0/5 | 0/5 | 5/5 |
+| delivery-options | A1 | 0/5 | 0/5 | 4/5 |
+| delivery-zone | D3 | 0/5 | 0/5 | 4/5 |
+| customer-profile | T1 | 3/5 | 4/5 | 4/5 |
+| customer-stats | D4 | 5/5 | 5/5 | 4/5 |
+
+Magic numbers in business logic (E1): 10/30 runs without rules, 10/30 with the placebo, 0/30 with DISTANCE. Tests passed in all runs except 2 baseline runs of delivery-zone.
+
+**What this adds:** A1, A3, D3, I1 and T2 carry over to tasks the rules were not tuned on. The held-out T1 and D4 traps are too easy to tell the conditions apart, and the D4 check cannot see a report added as a method of `Checkout`.
+
 ## Not covered yet
 
 - Letters without a task: D1, D2, I3, I4, E2, E3. Some need an LLM judge rather than a static check.
-- A held-out set of tasks: rules v2 were adjusted after seeing results on two of these tasks.
 - A second model or agent.
 
 ## Limits

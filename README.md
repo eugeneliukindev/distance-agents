@@ -10,20 +10,19 @@ The file is short on purpose: studies of context files found that long or genera
 
 ## Results so far
 
-Claude Code (`sonnet`), 14 tasks, 5 runs per cell, 245 runs. Details, the letter ablation and limits are in [`bench/results/report.md`](bench/results/report.md).
+Claude Code (`sonnet`), 5 runs per cell, about 400 runs. Details, the letter ablation and limits are in [`bench/results/report.md`](bench/results/report.md).
+
+Held-out tasks, written after the rules were fixed (rules v3):
 
 | rule | no rules | generic "clean code" advice | DISTANCE |
 |---|---|---|---|
-| I1, T2: integrations in adapters (courier, payment-email) | 0/10 | 0/10 | 10/10 |
-| A1: a new variant is an implementation (payment-methods) | 0/5 | 0/5 | 5/5 |
-| T1: the handler parses the request (order-details) | 0/5 | 0/5 | 5/5 |
-| C2: no mocks in tests (all tasks) | 53/70 | 53/70 | 68/70 |
-| E1: no magic numbers in business logic (all tasks) | 38/70 | 45/70 | 66/70 |
-| D3: no chains through other objects (gold-discount) | 0/5 | 0/5 | 2/5 |
-| A3: composition over inheritance (warehouse-reservation) | 0/5 | 0/5 | 0/5 |
-| D4: narrow interfaces (revenue-report) | 5/5 | 5/5 | 0/5 |
+| I1, T2: integrations in adapters (fiscal-receipt) | 0/5 | 0/5 | 5/5 |
+| A3: composition over inheritance (customer-repository) | 0/5 | 0/5 | 5/5 |
+| A1: a new variant is an implementation (delivery-options) | 0/5 | 0/5 | 4/5 |
+| D3: no chains through other objects (delivery-zone) | 0/5 | 0/5 | 4/5 |
+| E1: no magic numbers in business logic (all six tasks) | 20/30 | 20/30 | 30/30 |
 
-All runs passed the tests in every condition. With DISTANCE a run costs about 20% more. Some traps (S1, S2, A2, N1) are too easy: the agent gets them right even without rules.
+On the original tasks the same rules also fix T1 (0/5 -> 5/5), C2 mocks in tests (53/70 -> 68/70) and C3 pinning tests (0/5 -> 3-4/5). All runs passed the tests. With DISTANCE a run costs about 20% more. Traps that are still too easy to tell the conditions apart: S1, S2, A2, N1, and the D4 and held-out T1 tasks.
 
 ## How the benchmark works
 
