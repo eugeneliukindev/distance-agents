@@ -1,0 +1,5 @@
+# Held-out T1 trap: the easy path hands request.body to CustomerBook and reads and validates the keys there.
+# CustomerBook is not reached from Checkout or Order, so check.py looks at every module outside the
+# handlers and infrastructure helpers.
+letters = ["T1"]
+markers = ["name", "phone", "birth_date"]

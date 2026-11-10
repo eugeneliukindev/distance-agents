@@ -1,0 +1,3 @@
+# Held-out A3 trap: the orders store already inherits from SqliteTable, so the easy path for a customers
+# store is another subclass instead of holding a SqliteTable.
+letters = ["A3"]

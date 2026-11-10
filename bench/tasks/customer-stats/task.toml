@@ -1,0 +1,3 @@
+# Held-out D4 task: OrderRepository has seven methods and two implementations. The easy path makes the
+# statistics depend on the whole repository, though they need a single query.
+letters = ["D4"]

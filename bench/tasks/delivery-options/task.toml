@@ -1,0 +1,4 @@
+# Held-out A1 task: three delivery options. The easy path branches on the option name inside Checkout
+# or adds a method per option (book_courier, book_pickup, book_post).
+letters = ["A1"]
+variants = ["courier", "pickup", "post"]

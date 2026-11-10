@@ -1,0 +1,2 @@
+# Held-out D3 task: the zone sits at customer.address.city.zone. The easy path writes that chain in Checkout.
+letters = ["D3"]

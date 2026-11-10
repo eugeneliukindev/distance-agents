@@ -1,0 +1,4 @@
+# Held-out I1/T2 trap: the tax service call and its response format belong in an adapter, not in Checkout,
+# which already calls the acquirer directly.
+letters = ["I1", "T2"]
+markers = ["/receipts", "fiscal_number"]
