@@ -38,8 +38,14 @@ def clean(stage: dict, letters: list[str]) -> bool:
 def main() -> None:
     groups: dict[tuple[str, str], list[dict]] = defaultdict(list)
     lines = [line for name in sys.argv[1:] or ["runs.jsonl"] for line in (RESULTS / name).read_text().splitlines()]
+    failed_agents = []
     for record in map(json.loads, lines):
+        if record["agent_error"] or record.get("followup", {}).get("agent_error"):
+            failed_agents.append(record["run_id"])  # e.g. a usage limit: the agent never worked on the task
+            continue
         groups[(record["task"], record["condition"])].append(record)
+    if failed_agents:
+        print(f"Skipped {len(failed_agents)} runs where the agent itself failed: {', '.join(failed_agents)}\n")
 
     print("| task | letters | condition | runs | tests pass | target rules kept | lines added | cost, $ | minutes |")
     print("|---|---|---|---|---|---|---|---|---|")

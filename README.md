@@ -10,16 +10,20 @@ The file is short on purpose: studies of context files found that long or genera
 
 ## Results so far
 
-Pilot with Claude Code (`sonnet`), 5 runs per cell; details and limits in [`bench/results/report.md`](bench/results/report.md).
+Claude Code (`sonnet`), 14 tasks, 5 runs per cell, 245 runs. Details, the letter ablation and limits are in [`bench/results/report.md`](bench/results/report.md).
 
-| task | rules | no rules | generic "clean code" advice | DISTANCE |
-|---|---|---|---|---|
-| courier | I1, T2 | 0/5 | 0/5 | 5/5 |
-| payment-methods | A1 | 0/5 | 0/5 | 5/5 |
-| address | T1 | 5/5 | 5/5 | 5/5 |
-| promo-code | I2, N1 | 5/5 | 5/5 | 5/5 |
+| rule | no rules | generic "clean code" advice | DISTANCE |
+|---|---|---|---|
+| I1, T2: integrations in adapters (courier, payment-email) | 0/10 | 0/10 | 10/10 |
+| A1: a new variant is an implementation (payment-methods) | 0/5 | 0/5 | 5/5 |
+| T1: the handler parses the request (order-details) | 0/5 | 0/5 | 5/5 |
+| C2: no mocks in tests (all tasks) | 53/70 | 53/70 | 68/70 |
+| E1: no magic numbers in business logic (all tasks) | 38/70 | 45/70 | 66/70 |
+| D3: no chains through other objects (gold-discount) | 0/5 | 0/5 | 2/5 |
+| A3: composition over inheritance (warehouse-reservation) | 0/5 | 0/5 | 0/5 |
+| D4: narrow interfaces (revenue-report) | 5/5 | 5/5 | 0/5 |
 
-All runs passed the tests in every condition. With DISTANCE the agent adds about 45% more lines and costs about 10% more.
+All runs passed the tests in every condition. With DISTANCE a run costs about 20% more. Some traps (S1, S2, A2, N1) are too easy: the agent gets them right even without rules.
 
 ## How the benchmark works
 
@@ -35,6 +39,8 @@ The question: does an agent with the DISTANCE rules keep them better than the sa
   | `address` | raw request dict passed into business logic | T1 |
   | `promo-code` | interface, registry or strategy for one fixed code (reverse trap) | I2, N1 |
 
+  14 tasks in total, one or more per rule from S1 to C3; see `bench/tasks/*/task.toml`.
+
 - **Three conditions.** `baseline` runs the agent with no rules; `placebo` appends generic "write clean code" advice ([`bench/placebo.md`](bench/placebo.md)), to separate the effect of DISTANCE from the effect of any instructions; `distance` appends `AGENTS.md` to its system prompt. The agent runs isolated from user settings, memory and MCP servers, so the baseline really has no rules.
 - **Correctness first.** Hidden tests talk to the app only through HTTP-like requests, so they accept any internal design. A run counts only if both the task tests and the regression tests pass.
 - **Rules are checked statically, against the starter.** `bench/checks.py` parses the result with `ast` and counts only findings that were not in the starter already. It flags in business logic: infrastructure imports (I1), strings only an adapter or handler should know, like an API path or a raw request key (I1, T1), raw keys and dict parameters (T1), library errors and status codes (T2), methods named after a variant like `pay_by_cash` and checks like `if self._sbp is None` (A1); outside handlers: branches and dispatch tables on a variant name (A1); anywhere: interfaces with fewer than two implementations (I2).
@@ -48,8 +54,11 @@ Needs Python 3.11+ and [Claude Code](https://docs.claude.com/en/docs/claude-code
 
 ```bash
 python3 -m unittest discover -s bench -p "test_checks.py"            # self-check of the static checks
+python3 -m unittest discover -s bench -p "test_run.py"               # self-check of the ablation conditions
 python3 bench/run.py --runs 5                                         # all tasks and conditions, 5 runs each
-python3 bench/report.py > bench/results/report.md                     # summary table
+python3 bench/validate_task.py <task>                                 # a task is a fair trap: correct and broken solutions
+python3 bench/run.py --tasks courier --conditions distance minus-I    # ablation: rules without one letter
+python3 bench/report.py                                               # summary tables
 ```
 
 `CLAUDE_BIN` sets the path to the `claude` binary, `--model` the model. Raw results go to `bench/results/runs.jsonl`, every diff to `bench/results/patches/`.

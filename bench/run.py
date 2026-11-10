@@ -11,6 +11,7 @@ results/runs.jsonl.
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -25,7 +26,21 @@ BENCH = Path(__file__).resolve().parent
 RULES = BENCH.parent / "AGENTS.md"
 RESULTS = BENCH / "results"
 # placebo: generic "write clean code" advice, to tell the effect of DISTANCE from the effect of any instructions.
+# minus-<letter> (e.g. minus-A): the DISTANCE rules without that letter's rules, to see which letter does the work.
 CONDITIONS = {"baseline": None, "placebo": BENCH / "placebo.md", "distance": RULES}
+LETTERS = "DISTANCE"
+
+
+def rules_file(condition: str) -> Path | None:
+    if condition in CONDITIONS:
+        return CONDITIONS[condition]
+    letter = condition.removeprefix("minus-")
+    if not condition.startswith("minus-") or len(letter) != 1 or letter not in LETTERS:
+        raise ValueError(f"unknown condition {condition!r}")
+    kept = [p for p in RULES.read_text().split("\n\n") if not re.match(rf"\*\*{letter}\d\. ", p)]
+    path = Path(tempfile.gettempdir()) / f"distance-rules-minus-{letter}.md"
+    path.write_text("\n\n".join(kept))
+    return path
 AGENT_TIMEOUT_SECONDS = 1200
 
 
@@ -68,7 +83,7 @@ def run_agent(work: Path, prompt: str, condition: str, model: str) -> dict:
     started = time.monotonic()
     try:
         done = subprocess.run(
-            agent_command(prompt, CONDITIONS[condition], model),
+            agent_command(prompt, rules_file(condition), model),
             cwd=work, capture_output=True, text=True, timeout=AGENT_TIMEOUT_SECONDS, stdin=subprocess.DEVNULL,
         )
         agent = json.loads(done.stdout)
@@ -169,12 +184,14 @@ def summary_line(record: dict) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--tasks", nargs="+", default=sorted(p.name for p in (BENCH / "tasks").iterdir()))
-    parser.add_argument("--conditions", nargs="+", default=list(CONDITIONS), choices=list(CONDITIONS))
+    parser.add_argument("--conditions", nargs="+", default=list(CONDITIONS), help="baseline, placebo, distance, minus-<letter>")
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--model", default="sonnet")
     parser.add_argument("--parallel", type=int, default=4)
     parser.add_argument("--out", default="runs.jsonl", help="results file name inside results/")
     args = parser.parse_args()
+    for condition in args.conditions:
+        rules_file(condition)  # fail fast on a typo
 
     jobs = [(t, c, i, args.model) for i in range(args.runs) for t in args.tasks for c in args.conditions]
     RESULTS.mkdir(exist_ok=True)

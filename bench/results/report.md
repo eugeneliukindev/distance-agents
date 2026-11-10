@@ -1,51 +1,93 @@
 # Results
 
-Agent: Claude Code 2.1.321, model `sonnet`, headless, isolated from user settings and memory. 5 runs per task and condition. Date: 2026-11-10.
+Agent: Claude Code 2.1.321, model `sonnet`, headless, isolated from user settings and memory. Rules: the current `AGENTS.md` (v2). 5 runs per task and condition, 245 valid runs, about $45. Date: 2026-11-10.
 
-- **rules v1**: the first `AGENTS.md`.
-- **rules v2**: the current `AGENTS.md`. Two sentences were added after v1 was measured: I1 says existing infrastructure calls in business code are not a pattern to copy, and A1 forbids a method per variant in a use case.
+Conditions:
+- **no rules**: the agent gets only the task;
+- **placebo**: generic advice, "write clean, maintainable code" ([`placebo.md`](../placebo.md));
+- **DISTANCE**: `AGENTS.md` appended to the system prompt;
+- **without a letter**: `AGENTS.md` with all rules of one letter removed.
 
-## Rules kept
+Runs where the agent itself failed (a usage limit hit once) are dropped; the report script skips them.
 
-Runs where the static checks found no new violation of the rules the task targets.
+## Target rule kept, per task
 
-| task | rules | baseline | placebo | distance (rules v1) | distance (rules v2) |
-|---|---|---|---|---|---|
-| courier | I1, T2 | 0/5 | 0/5 | 5/5 | 5/5 |
-| payment-methods | A1 | 0/5 | 0/5 | 1/5 | 5/5 |
-| address | T1 | 5/5 | 5/5 | 5/5 | 5/5 |
-| promo-code | I2, N1 | 5/5 | 5/5 | 5/5 | 5/5 |
+Runs where the static checks found no new violation of the rule the task targets. All runs passed the hidden and regression tests in every condition.
 
-## Follow-up: add gift cards on top of the agent's own payment-methods result
+| task | rules | no rules | placebo | DISTANCE |
+|---|---|---|---|---|
+| courier | I1, T2 | 0/5 | 0/5 | 5/5 |
+| payment-email | I2, I1 | 0/5 | 0/5 | 5/5 |
+| payment-methods | A1 | 0/5 | 0/5 | 5/5 |
+| order-details | T1 | 0/5 | 0/5 | 5/5 |
+| delivery-legacy | C3 | 0/5 | 5/5 | 4/5 |
+| gold-discount | D3 | 0/5 | 0/5 | 2/5 |
+| warehouse-reservation | A3 | 0/5 | 0/5 | 0/5 |
+| revenue-report | D4 | 5/5 | 5/5 | 0/5 |
+| address | T1 | 5/5 | 5/5 | 5/5 |
+| free-shipping | S1 | 5/5 | 5/5 | 5/5 |
+| cancel-order | S2 | 5/5 | 5/5 | 5/5 |
+| refunds | A2 | 5/5 | 5/5 | 5/5 |
+| promo-code | I2, N1 | 5/5 | 5/5 | 5/5 |
+| order-export | N1, I2 | 5/5 | 5/5 | 5/5 |
 
-| condition | rules kept | business files touched |
-|---|---|---|
-| baseline | 0/5 | 2.0 |
-| placebo | 0/5 | 2.0 |
-| distance (rules v1) | 1/5 | 2.0 |
-| distance (rules v2) | 5/5 | 1.4 |
+## Which letter does the work
 
-## Correctness and cost, all four tasks
-
-| condition | tests pass | mean cost, $ | mean lines added |
+| task | letter removed | DISTANCE | DISTANCE without the letter |
 |---|---|---|---|
-| baseline | 20/20 | 0.18 | 61 |
-| placebo | 20/20 | 0.18 | 63 |
-| distance (rules v1) | 20/20 | 0.19 | 82 |
-| distance (rules v2) | 20/20 | 0.20 | 89 |
+| payment-methods | A | 5/5 | 0/5 |
+| delivery-legacy | C | 4/5 | 0/5 |
+| order-details | T | 5/5 | 2/5 |
+| courier | I | 5/5 | 4/5 |
+| payment-email | I | 5/5 | 5/5 |
+
+## Checked on every task
+
+| condition | runs | tests pass | mocks in tests (C2) | magic numbers (E1) | mean cost, $ | mean lines added |
+|---|---|---|---|---|---|---|
+| no rules | 70 | 70/70 | 17/70 | 32/70 | 0.16 | 54 |
+| placebo | 70 | 70/70 | 17/70 | 25/70 | 0.16 | 55 |
+| DISTANCE | 70 | 70/70 | 2/70 | 4/70 | 0.19 | 70 |
+
+## Follow-up on payment-methods: add gift cards on top of the agent's own result
+
+| condition | rule kept | business files touched |
+|---|---|---|
+| no rules | 0/5 | 2.0 |
+| placebo | 0/5 | 2.0 |
+| DISTANCE | 5/5 | 1.4 |
 
 ## What this shows
 
-- **The rules change the design where the easy path breaks them.** Without rules the agent copies the starter: it calls the courier and SBP APIs from `Checkout` and adds `pay_by_cash` and `pay_by_sbp`. With rules v2 it puts each integration in its own adapter and adds one `pay(order_id, method)` with an implementation per method.
-- **Generic advice does nothing.** The placebo ("write clean, maintainable code") matches the baseline on every task.
-- **Wording matters.** Rules v1 already fixed the courier task but not payment methods: the agent followed the surrounding code. Saying explicitly that existing infrastructure calls are not a pattern, and naming the "method per variant" mistake, moved payment methods from 1/5 to 5/5.
-- **No correctness cost.** Every run passed the hidden and regression tests.
-- **Some size cost.** Runs with rules add about 45% more lines and cost about 10% more. Part of it is moving existing card code into an implementation.
-- **Two traps are too weak.** `address` and `promo-code` show no difference: the agent does not pass raw dicts inward or over-engineer one promo code even without rules. They need harder versions.
+**Work, and generic advice does not:**
+- **I1, T2** (courier, payment-email): new integrations go into adapters instead of `Checkout`.
+- **A1** (payment-methods): one `pay(order_id, method)` and an implementation per method instead of `pay_by_cash`, `pay_by_sbp`. Without the A rules: 0/5.
+- **T1** (order-details): the handler parses the request; without the T rules: 2/5.
+- **C2**: mocks in tests drop from 17/70 to 2/70.
+- **E1**: magic numbers in business logic drop from 32/70 to 4/70.
+
+**Work, but so does generic advice:** C3 (delivery-legacy). The placebo also says "add tests", which is enough; without the C rules DISTANCE drops to 0/5.
+
+**Partly:** D3 (gold-discount), 2/5. The agent adds a method but still reaches it through `customer.profile.loyalty`.
+
+**Do not work:** A3 (warehouse-reservation), 0/5 everywhere. The starter already has a client that inherits from `JsonApiClient`, and the agent copies it, as it did with A1 before rules v2.
+
+**Hurts:** D4 (revenue-report). With rules the agent extracts the report into its own class, which is good, but gives it the whole 7-method `OrderStore`. Without rules it adds a method to `Checkout`, which this check cannot see as a violation, so this row compares unlike things; still, D4 as written does not lead to a narrow interface.
+
+**Redundant in the rules:** removing the I letter barely changes courier and payment-email: the definition of "adapter" in the terms section and T2 carry the same idea.
+
+**Traps too weak:** S1, S2, A2, N1, and T1 in `address`: the agent does not make the mistake even without rules.
+
+**Cost:** with DISTANCE about 20% more per run and 30% more lines.
+
+## Not covered yet
+
+- Letters without a task: D1, D2, I3, I4, E2, E3. Some need an LLM judge rather than a static check.
+- A held-out set of tasks: rules v2 were adjusted after seeing results on two of these tasks.
+- A second model or agent.
 
 ## Limits
 
 - One agent, one model, five runs per cell: a pilot, not a verdict.
-- Rules v2 was written after looking at v1 results on the same task, and then measured on the same tasks. A held-out set of tasks is needed to rule out fitting the rules to the benchmark.
-- Static checks see structure, not intent. Two false positives were found by reading patches and fixed (`bench/test_checks.py` covers them); results were regraded with `bench/regrade.py`.
+- Static checks see structure, not intent. False positives found by reading patches were fixed and covered by `bench/test_checks.py`; every task was validated against a correct and a broken solution with `bench/validate_task.py`.
 - The first pilot, on a starter that already followed the rules, showed no difference between conditions: the agent mirrored the clean code.
