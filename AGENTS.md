@@ -19,7 +19,7 @@ If a rule makes the code more complex in a specific place, skip it there. When t
 
 **D1. The public API is simpler than the internals.** One call does the whole job; callers never have to know an order of steps. Extract a function or class only when it hides something and its API is simpler than the code it replaces. Length alone is not a reason to split.
 
-**I1. Business logic does not depend on infrastructure.** Business logic never imports or calls a database client, HTTP client, cache client, file system, clock or random generator. Put each external system behind an adapter. Pass adapters in through the constructor and build them only in the entry point (`main`). Pass a single infrastructure operation (like `now()`) as a function parameter. The adapter exists because the system's internals (schema, queries, keys, library, error codes) change often, not to swap the system.
+**I1. Business logic does not depend on infrastructure.** Business logic never imports or calls a database client, HTTP client, cache client, file system, clock or random generator. Put each external system behind an adapter. Pass adapters in through the constructor and build them only in the entry point (`main`). Pass a single infrastructure operation (like `now()`) as a function parameter. If existing business code already calls infrastructure, that is not a pattern to copy: put every new integration in its own adapter, even when the code around it does otherwise. The adapter exists because the system's internals (schema, queries, keys, library, error codes) change often, not to swap the system.
 
 **T1. Parse foreign data once, at the boundary.** Handlers turn request bodies into validated domain values; adapters turn rows and responses into domain values. Business logic never receives raw dicts or JSON, never reads raw keys and never validates the same thing again.
 
@@ -47,7 +47,7 @@ If a rule makes the code more complex in a specific place, skip it there. When t
 
 ## Only in specific situations
 
-**A1. If a new variant of behavior appears -> add an implementation, not a branch.** A payment method or courier is a new implementation of a shared interface, chosen in the handler or entry point. No `if`/`elif`/`match` on a variant name or flag inside business logic. Exception: a closed, stable set with many operations (order statuses) is an enum handled completely in one owner.
+**A1. If a new variant of behavior appears -> add an implementation, not a branch.** A payment method or courier is a new implementation of a shared interface, chosen in the handler or entry point. No `if`/`elif`/`match` on a variant name or flag inside business logic, and no method per variant in a use case (`pay_by_cash`, `pay_by_sbp`): the use case takes the implementation (`pay(order_id, method)`). Exception: a closed, stable set with many operations (order statuses) is an enum handled completely in one owner.
 
 **I2. If you want an interface -> add it only when a second implementation is real.** Real means: a test fake, a second provider or database, several variants right now (A1), or a replacement already decided. Otherwise depend on the class directly; extracting an interface later is a mechanical change.
 

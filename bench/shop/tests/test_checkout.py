@@ -1,65 +1,72 @@
+import json
+import threading
 import unittest
 from decimal import Decimal
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from shop.checkout import Checkout
+from shop.db import connect
+from shop.errors import OrderNotPayable, PaymentDeclined
 from shop.money import Money
-from shop.orders.checkout import Checkout
-from shop.orders.errors import OrderNotPayable, PaymentDeclined
-from shop.orders.order import Order, OrderStatus
+from shop.order import OrderStatus
 
 
-class InMemoryOrders:
-    def __init__(self) -> None:
-        self._orders: dict[str, Order] = {}
+class FakeAcquirer:
+    """Local HTTP server that answers /charges with a fixed status."""
 
-    def next_id(self) -> str:
-        return f"o-{len(self._orders) + 1}"
+    def __init__(self, status: int) -> None:
+        self.charged: list[dict] = []
+        acquirer = self
 
-    def get(self, order_id: str) -> Order | None:
-        return self._orders.get(order_id)
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self) -> None:
+                acquirer.charged.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+                payload = json.dumps({"payment_id": "pay-1"}).encode()
+                self.send_response(status)
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
 
-    def save(self, order: Order) -> None:
-        self._orders[order.id] = order
+            def log_message(self, *args: object) -> None:
+                pass
 
+        self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.url = f"http://127.0.0.1:{self._server.server_port}"
+        threading.Thread(target=self._server.serve_forever, daemon=True).start()
 
-class ApprovingAcquirer:
-    def __init__(self) -> None:
-        self.charged: list[Money] = []
-
-    def charge(self, amount: Money, card_token: str, idempotency_key: str) -> str:
-        self.charged.append(amount)
-        return "pay-1"
-
-
-class DecliningAcquirer:
-    def charge(self, amount: Money, card_token: str, idempotency_key: str) -> str:
-        raise PaymentDeclined(idempotency_key)
+    def close(self) -> None:
+        self._server.shutdown()
+        self._server.server_close()
 
 
 RUB_1000 = Money(Decimal("1000.00"), "RUB")
 
 
 class CheckoutTest(unittest.TestCase):
+    def checkout(self, status: int) -> tuple[Checkout, FakeAcquirer]:
+        acquirer = FakeAcquirer(status)
+        self.addCleanup(acquirer.close)
+        return Checkout(connect(":memory:"), acquirer.url), acquirer
+
     def test_paid_order_is_charged_and_saved_as_paid(self) -> None:
-        orders, acquirer = InMemoryOrders(), ApprovingAcquirer()
-        checkout = Checkout(orders, acquirer)
+        checkout, acquirer = self.checkout(200)
         order = checkout.create_order("c-1", RUB_1000)
 
         checkout.pay_by_card(order.id, "tok")
 
-        self.assertEqual(acquirer.charged, [RUB_1000])
-        self.assertIs(orders.get(order.id).status, OrderStatus.PAID)
+        self.assertEqual(acquirer.charged[0]["amount"], "1000.00")
+        self.assertIs(checkout.get_order(order.id).status, OrderStatus.PAID)
 
     def test_declined_payment_keeps_order_new(self) -> None:
-        orders = InMemoryOrders()
-        checkout = Checkout(orders, DecliningAcquirer())
+        checkout, _ = self.checkout(402)
         order = checkout.create_order("c-1", RUB_1000)
 
         with self.assertRaises(PaymentDeclined):
             checkout.pay_by_card(order.id, "tok")
-        self.assertIs(orders.get(order.id).status, OrderStatus.NEW)
+        self.assertIs(checkout.get_order(order.id).status, OrderStatus.NEW)
 
     def test_order_cannot_be_paid_twice(self) -> None:
-        checkout = Checkout(InMemoryOrders(), ApprovingAcquirer())
+        checkout, _ = self.checkout(200)
         order = checkout.create_order("c-1", RUB_1000)
         checkout.pay_by_card(order.id, "tok")
 

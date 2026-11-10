@@ -1,2 +1,4 @@
 letters = ["I1", "T2"]
 variants = []
+# Strings only an adapter should know: the courier API path and its response key.
+markers = ["/shipments", "tracking_number"]

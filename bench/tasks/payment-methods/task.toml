@@ -1,2 +1,6 @@
 letters = ["A1"]
-variants = ["card", "cash", "sbp"]
+variants = ["card", "cash", "sbp", "gift_card"]
+# Strings only an adapter should know: the SBP API path.
+markers = ["/payments"]
+# Second change on top of the agent's own result: how many business files does a new variant touch?
+followup = true

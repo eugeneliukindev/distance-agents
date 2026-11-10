@@ -1,10 +1,10 @@
 import re
 from decimal import Decimal, InvalidOperation
 
+from shop.checkout import Checkout
+from shop.errors import OrderNotFound, OrderNotPayable, PaymentDeclined, PaymentUnavailable
 from shop.money import Money
-from shop.orders.checkout import Checkout
-from shop.orders.errors import OrderNotFound, OrderNotPayable, PaymentDeclined, PaymentUnavailable
-from shop.orders.order import Order
+from shop.order import Order
 from shop.web.http import HttpRequest, HttpResponse
 
 ORDER_PATH = r"^/orders/(?P<order_id>[^/]+)"

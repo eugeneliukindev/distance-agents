@@ -1,2 +1,4 @@
 letters = ["T1"]
 variants = []
+# Raw request keys: only the handler should read them.
+markers = ["zip", "street"]

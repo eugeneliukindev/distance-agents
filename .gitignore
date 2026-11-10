@@ -1,3 +1,4 @@
-bench/results/runs.jsonl
+bench/results/*.jsonl
 bench/results/patches/
+bench/results/pilot-v1/
 __pycache__/

@@ -1,4 +1,7 @@
-"""Runs hidden and regression tests inside a run directory and prints a JSON summary."""
+"""Runs the given test modules inside a run directory and prints a JSON summary.
+
+    python3 _bench/run_tests.py _bench.test_regression _bench.test_hidden
+"""
 
 import json
 import sys
@@ -9,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # the run direc
 
 suite = unittest.TestSuite()
 loader = unittest.TestLoader()
-for name in ("_bench.test_regression", "_bench.test_hidden"):
+for name in sys.argv[1:]:
     try:
         suite.addTests(loader.loadTestsFromName(name))
     except Exception as error:  # the agent's code may not even import

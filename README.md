@@ -8,11 +8,25 @@ Copy [`AGENTS.md`](AGENTS.md) into your repository root. Agents that read `AGENT
 
 The file is short on purpose: studies of context files found that long or generated instructions add cost and can lower success rates, while short human-written ones help a little. Every rule is meant to be checkable.
 
+## Results so far
+
+Pilot with Claude Code (`sonnet`), 5 runs per cell; details and limits in [`bench/results/report.md`](bench/results/report.md).
+
+| task | rules | no rules | generic "clean code" advice | DISTANCE |
+|---|---|---|---|---|
+| courier | I1, T2 | 0/5 | 0/5 | 5/5 |
+| payment-methods | A1 | 0/5 | 0/5 | 5/5 |
+| address | T1 | 5/5 | 5/5 | 5/5 |
+| promo-code | I2, N1 | 5/5 | 5/5 | 5/5 |
+
+All runs passed the tests in every condition. With DISTANCE the agent adds about 45% more lines and costs about 10% more.
+
 ## How the benchmark works
 
 The question: does an agent with the DISTANCE rules keep them better than the same agent without them, without breaking functionality or costing much more?
 
-- **Tasks are traps.** Each task is an ordinary feature request on a small shop codebase (`bench/shop`), where the easy solution breaks a specific rule:
+- **The starter code is ordinary, not exemplary.** `bench/shop` is a small shop where the `Checkout` use case talks to SQLite and the acquiring API directly, with no interfaces or adapters to copy. A first pilot on a clean starter showed no difference between conditions: the agent simply mirrored the clean patterns it saw.
+- **Tasks are traps.** Each task is an ordinary feature request, where the easy solution breaks a specific rule:
 
   | Task | Easy mistake | Rules |
   |---|---|---|
@@ -23,7 +37,8 @@ The question: does an agent with the DISTANCE rules keep them better than the sa
 
 - **Three conditions.** `baseline` runs the agent with no rules; `placebo` appends generic "write clean code" advice ([`bench/placebo.md`](bench/placebo.md)), to separate the effect of DISTANCE from the effect of any instructions; `distance` appends `AGENTS.md` to its system prompt. The agent runs isolated from user settings, memory and MCP servers, so the baseline really has no rules.
 - **Correctness first.** Hidden tests talk to the app only through HTTP-like requests, so they accept any internal design. A run counts only if both the task tests and the regression tests pass.
-- **Rules are checked statically.** `bench/checks.py` parses the result with `ast` and flags: infrastructure imports in business logic (I1), raw keys and dict parameters in business logic (T1), library errors and status codes in business logic (T2), branches and dispatch tables on a variant name outside handlers (A1), new interfaces with fewer than two implementations (I2).
+- **Rules are checked statically, against the starter.** `bench/checks.py` parses the result with `ast` and counts only findings that were not in the starter already. It flags in business logic: infrastructure imports (I1), strings only an adapter or handler should know, like an API path or a raw request key (I1, T1), raw keys and dict parameters (T1), library errors and status codes (T2), methods named after a variant like `pay_by_cash` and checks like `if self._sbp is None` (A1); outside handlers: branches and dispatch tables on a variant name (A1); anywhere: interfaces with fewer than two implementations (I2).
+- **Follow-up changes measure maintainability.** `payment-methods` gets a second request on top of the agent's own result: add gift cards. The report counts how many business logic files that change had to touch.
 - **Cost and size.** Every run records cost, turns, time and lines added, so over-engineering shows up too.
 - **Repeats.** Agent runs are noisy, so every task runs several times per condition.
 
@@ -45,7 +60,7 @@ Create `bench/tasks/<name>/` with:
 
 - `task.md`: the request, written the way a user would ask, without hints about the rules;
 - `test_hidden.py`: tests through `_bench.support` (`make_app`, `call`, `FakeService`);
-- `task.toml`: `letters` the task targets and, for A1, the `variants` names.
+- `task.toml`: `letters` the task targets, `variants` names for A1, `markers` (strings business logic must not contain) and optionally `followup = true` with `followup.md` and `test_followup.py`.
 
 ## Limits
 

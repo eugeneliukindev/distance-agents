@@ -1,9 +1,7 @@
 from dataclasses import dataclass
 
-from shop.adapters.card_acquirer import HttpCardAcquirer
-from shop.adapters.sqlite_orders import SqliteOrders
-from shop.infra.http import HttpClient
-from shop.orders.checkout import Checkout
+from shop.checkout import Checkout
+from shop.db import connect
 from shop.web.app import App
 
 
@@ -14,7 +12,4 @@ class Config:
 
 
 def build_app(config: Config) -> App:
-    """Entry point: the only place that creates adapters and wires them together."""
-    orders = SqliteOrders(config.db_path)
-    acquirer = HttpCardAcquirer(HttpClient(config.acquirer_url))
-    return App(Checkout(orders, acquirer))
+    return App(Checkout(connect(config.db_path), config.acquirer_url))
