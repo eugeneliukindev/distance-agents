@@ -43,7 +43,7 @@ If a rule makes the code more complex in a specific place, skip it there. When t
 
 **E3. Comments explain why.** Comment only reasons the code cannot show. Never restate the code.
 
-**D3. Talk to your nearest neighbor.** Call methods on yourself, your parameters, your fields and objects you created; no `a.b().c().d()` chains through other objects' internals. Value objects and fluent builders are exempt.
+**D3. Talk to your nearest neighbor.** Call methods on yourself, your parameters, your fields and objects you created; no `a.b().c().d()` chains through other objects' internals. When you need something from deep inside an object, add a method to the object you hold (`customer.is_gold()`) and keep the walk inside it; a new method at the end of the same chain (`customer.profile.loyalty.discount()`) is still a chain. Value objects and fluent builders are exempt.
 
 ## Only in specific situations
 
@@ -55,9 +55,9 @@ If a rule makes the code more complex in a specific place, skip it there. When t
 
 **S2. If data has an invariant -> only its owner changes it.** Hide the state inside the owner; callers call methods (`order.ship(tracking)`), the owner checks the transition. Callers never assign status fields.
 
-**A3. If you need another class's behavior -> use composition.** Hold the object in a field and call it. Inherit only from a type you fully substitute that was designed for inheritance.
+**A3. If you need another class's behavior -> use composition.** Hold the object in a field and call it. Inherit only from a type you fully substitute that was designed for inheritance. If existing classes inherit a helper base class (an API client, a table helper), that is not a pattern to copy: a new class takes the helper in its constructor.
 
-**D4. If an interface has different callers -> give each a narrow one.** Each caller depends only on the methods it uses. One caller means no split.
+**D4. If an interface has different callers -> give each a narrow one.** Each caller depends only on the methods it uses. When new code needs one or two methods of a big interface, declare a small interface with just those methods (the existing implementations already fit it) and accept that; do not pass the big one. One caller means no split.
 
 **I4. If there are several packages -> no import cycles between them.** Break a cycle by describing a package's API in its own terms or by moving the interface to the package that uses it.
 
