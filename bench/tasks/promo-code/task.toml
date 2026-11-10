@@ -1,0 +1,3 @@
+# Reverse trap: one fixed code. A new interface, registry or strategy here breaks I2 and N1.
+letters = ["I2", "N1"]
+variants = []
